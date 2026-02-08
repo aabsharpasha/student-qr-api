@@ -1,0 +1,9 @@
+# Minimal dependencies inferred from main.py
+fastapi
+uvicorn[standard]
+supabase
+pydantic
+httpx
+python-dotenv
+qrcode[pil]
+jinja2

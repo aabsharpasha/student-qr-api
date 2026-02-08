@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teacher Dashboard - QR Attendance</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f4f7f6; }
+        .container { background: white; padding: 30px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        img { border: 10px solid #fff; border-radius: 8px; }
+        .timer { font-size: 0.9em; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Class: {{ class_id }}</h1>
+        <p>Students should scan the code below to mark attendance.</p>
+        
+        <img id="qrImage" src="/qr-code" width="300" height="300">
+        
+        <div class="timer" id="timerText">Refreshing in 30s...</div>
+    </div>
+
+    <script>
+        let timeLeft = 30;
+        const qrImg = document.getElementById('qrImage');
+        const timerTxt = document.getElementById('timerText');
+
+        setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                // Add a cache-buster timestamp to force image reload
+                qrImg.src = "/qr-code?t=" + new Date().getTime();
+                timeLeft = 30;
+            }
+            timerTxt.innerText = "Refreshing in " + timeLeft + "s...";
+        }, 1000);
+    </script>
+</body>
+</html>
