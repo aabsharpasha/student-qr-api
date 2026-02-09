@@ -20,6 +20,9 @@ import traceback
 
 app = FastAPI(title="Student Attendance POC")
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 # Templates and class id for dashboard/rotating QR
 templates = Jinja2Templates(directory="templates")
 CLASS_ID = os.environ.get("CLASS_ID", "C101")
