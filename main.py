@@ -30,7 +30,7 @@ supabase: Client = create_client(url, key)
 QR_SECRET = os.environ.get("QR_SECRET", "change-me-in-production")
 TEACHER_DIGIPIN = '39J-MC3-M77C'
 QR_MAX_AGE_SECONDS = int(os.environ.get("QR_VALIDITY_SECONDS", "90"))
-DIGIPIN_SERVICE_URL = "http://localhost:5000/api/digipin"
+DIGIPIN_SERVICE_URL = os.environ.get("DIGIPIN_SERVICE_URL", "http://localhost:5000/api/digipin")
 
 def sign_payload(payload: dict, secret: str) -> str:
     """Same as qrcodegen.py: HMAC-SHA256 of canonical JSON."""
