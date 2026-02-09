@@ -270,6 +270,26 @@ async def get_qr():
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
 
+
+@app.get("/api/attendance")
+async def list_attendance(limit: int = 100, class_id: Optional[str] = None):
+    """Return recent attendance rows as JSON, filtered by class_id (defaults to CLASS_ID)."""
+    cid = class_id or CLASS_ID
+    try:
+        resp = (
+            supabase.table("attendance")
+            .select("id, student_id, class_id, student_digipin, student_lat, student_long, scanned_at")
+            .eq("class_id", cid)
+            .order("scanned_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except Exception:
+        return []
+
+    rows = getattr(resp, "data", None) or (resp.get("data") if isinstance(resp, dict) else [])
+    return rows
+
 # Structure: { "STU_001": "DEVICE_SERIAL_XYZ" }
 device_registry = {}
 

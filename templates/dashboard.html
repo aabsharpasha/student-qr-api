@@ -3,20 +3,66 @@
 <head>
     <title>Teacher Dashboard - QR Attendance</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f4f7f6; }
-        .container { background: white; padding: 30px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        img { border: 10px solid #fff; border-radius: 8px; }
-        .timer { font-size: 0.9em; color: #666; margin-top: 10px; }
+        :root{ --muted:#6b7280; --accent:#0ea5a4; --surface:#ffffff; --card-shadow: 0 6px 18px rgba(16,24,40,0.08); }
+        body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: #f4f7f6; color: #111827; margin:0; padding:40px 20px; }
+        .container { background: var(--surface); padding: 22px; border-radius: 12px; box-shadow: var(--card-shadow); max-width:1100px; margin:0 auto; display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items:start; }
+        .qr-card { text-align:center; padding:12px; border-radius:10px; background: linear-gradient(180deg,#fbfeff,#f7fffe); }
+        .qr-card img { border-radius:8px; width:100%; height:auto; box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
+        .timer { font-size:0.9rem; color:var(--muted); margin-top:10px; }
+
+        h1{font-size:1.2rem;margin:0 0 6px 0}
+        h2{font-size:1rem;margin:0 0 12px 0;color:#111827}
+
+        /* Attendance table */
+        .attendance-wrap{background:transparent;border-radius:8px;padding:8px}
+        table.attendance-table{width:100%;border-collapse:collapse;font-size:0.95rem;background:var(--surface);border-radius:8px;overflow:hidden}
+        table.attendance-table thead th{background:#f8fafc;color:#111827;font-weight:600;padding:12px 10px;text-align:left;border-bottom:1px solid #eef2f7;position:sticky;top:0}
+        table.attendance-table tbody td{padding:12px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
+        table.attendance-table tbody tr:nth-child(even){background:#fbfcfd}
+        table.attendance-table tbody tr:hover{background:#f1f5f9}
+        .muted{color:var(--muted)}
+        .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size:0.92rem}
+
+        /* Responsive: stack on small screens */
+        @media (max-width: 860px){
+            .container{grid-template-columns:1fr; padding:16px}
+            .qr-card{order:0}
+            .attendance-wrap{order:1}
+            table.attendance-table thead th{position:relative}
+        }
+        /* allow horizontal scroll for very small screens */
+        .table-scroll{overflow:auto;border-radius:8px}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Class: {{ class_id }}</h1>
-        <p>Students should scan the code below to mark attendance.</p>
-        
-        <img id="qrImage" src="/qr-code" width="300" height="300">
-        
-        <div class="timer" id="timerText">Refreshing in 30s...</div>
+        <div class="qr-card">
+            <h1>Class: {{ class_id }}</h1>
+            <p class="muted">Students should scan the code below to mark attendance.</p>
+            <div style="max-width:300px;margin:14px auto 6px;">
+                <img id="qrImage" src="/qr-code" alt="QR code">
+            </div>
+            <div class="timer" id="timerText">Refreshing in 30s...</div>
+        </div>
+
+        <div class="attendance-wrap">
+            <h2>Recent Attendance</h2>
+            <div class="table-scroll">
+                <table class="attendance-table" id="attendanceTable">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>DIGIPIN</th>
+                            <th>Lat, Long</th>
+                            <th>Scanned At (IST)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceBody">
+                        <tr><td colspan="4" style="padding:18px;color:#666">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -27,12 +73,53 @@
         setInterval(() => {
             timeLeft--;
             if (timeLeft <= 0) {
-                // Add a cache-buster timestamp to force image reload
-                qrImg.src = "/qr-code?t=" + new Date().getTime();
-                timeLeft = 30;
-            }
+                    // Add a cache-buster timestamp to force image reload
+                    qrImg.src = "/qr-code?t=" + new Date().getTime();
+                    timeLeft = 30;
+                    // Also refresh the attendance list when QR rotates
+                    fetchAttendance();
+                }
             timerTxt.innerText = "Refreshing in " + timeLeft + "s...";
         }, 1000);
+
+            // Fetch attendance list and render into table
+            async function fetchAttendance() {
+                try {
+                    const res = await fetch(`/api/attendance?class_id=${encodeURIComponent('{{ class_id }}')}&limit=100`);
+                    if (!res.ok) throw new Error('Failed to load');
+                    const data = await res.json();
+                    const body = document.getElementById('attendanceBody');
+                    if (!data || data.length === 0) {
+                        body.innerHTML = '<tr><td colspan="4" style="padding:18px;color:#666">No attendance recorded yet.</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = data.map(r => {
+                        const latlong = (r.student_lat && r.student_long) ? `${r.student_lat.toFixed(6)}, ${r.student_long.toFixed(6)}` : '';
+                        let scanned = '';
+                        if (r.scanned_at) {
+                            try {
+                                const dt = new Date(r.scanned_at);
+                                scanned = new Intl.DateTimeFormat('en-GB', {
+                                    timeZone: 'Asia/Kolkata',
+                                    year: 'numeric', month: 'short', day: '2-digit',
+                                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                                    hour12: false
+                                }).format(dt) + ' IST';
+                            } catch (e) {
+                                scanned = r.scanned_at;
+                            }
+                        }
+                        return `<tr><td class="mono">${r.student_id || ''}</td><td>${r.student_digipin || ''}</td><td class="muted">${latlong}</td><td class="muted">${scanned}</td></tr>`;
+                    }).join('');
+                } catch (e) {
+                    const body = document.getElementById('attendanceBody');
+                    body.innerHTML = `<tr><td colspan="4" style="padding:12px;color:#b00">Error loading attendance</td></tr>`;
+                }
+            }
+
+            // Initial load and periodic refresh
+            fetchAttendance();
+            setInterval(fetchAttendance, 60000);
     </script>
 </body>
 </html>
