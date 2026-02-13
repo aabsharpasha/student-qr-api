@@ -1,45 +1,204 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard - QR Attendance</title>
     <style>
-        :root{ --muted:#6b7280; --accent:#0ea5a4; --surface:#ffffff; --card-shadow: 0 6px 18px rgba(16,24,40,0.08); }
-        body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: #f4f7f6; color: #111827; margin:0; padding:40px 20px; }
-        .container { background: var(--surface); padding: 22px; border-radius: 12px; box-shadow: var(--card-shadow); max-width:1100px; margin:0 auto; display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items:start; }
-        .qr-card { text-align:center; padding:12px; border-radius:10px; background: linear-gradient(180deg,#fbfeff,#f7fffe); }
-        .qr-card img { border-radius:8px; width:100%; height:auto; box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
-        .timer { font-size:0.9rem; color:var(--muted); margin-top:10px; }
-
-        h1{font-size:1.2rem;margin:0 0 6px 0}
-        h2{font-size:1rem;margin:0 0 12px 0;color:#111827}
-
-        /* Attendance table */
-        .attendance-wrap{background:transparent;border-radius:8px;padding:8px}
-        table.attendance-table{width:100%;border-collapse:collapse;font-size:0.95rem;background:var(--surface);border-radius:8px;overflow:hidden}
-        table.attendance-table thead th{background:#f8fafc;color:#111827;font-weight:600;padding:12px 10px;text-align:left;border-bottom:1px solid #eef2f7;position:sticky;top:0}
-        table.attendance-table tbody td{padding:12px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
-        table.attendance-table tbody tr:nth-child(even){background:#fbfcfd}
-        table.attendance-table tbody tr:hover{background:#f1f5f9}
-        .muted{color:var(--muted)}
-        .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size:0.92rem}
-
-        /* Responsive: stack on small screens */
-        @media (max-width: 860px){
-            .container{grid-template-columns:1fr; padding:16px}
-            .qr-card{order:0}
-            .attendance-wrap{order:1}
-            table.attendance-table thead th{position:relative}
+        :root {
+            --muted: #6b7280;
+            --accent: #0ea5a4;
+            --surface: #ffffff;
+            --navy: #1B365D;
+            --gold: #C9A227;
+            --success: #2E7D32;
+            --warning: #ED6C02;
+            --card-shadow: 0 4px 20px rgba(16, 24, 40, 0.1);
+            --card-radius: 16px;
         }
-        /* allow horizontal scroll for very small screens */
-        .table-scroll{overflow:auto;border-radius:8px}
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(160deg, #f0f4f8 0%, #e8eef4 100%);
+            color: #111827;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: var(--navy);
+            color: #fff;
+            padding: 24px 32px;
+            margin-bottom: 32px;
+            box-shadow: 0 2px 12px rgba(27, 54, 93, 0.2);
+        }
+        .page-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.02em;
+        }
+        .page-header p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .refresh-btn {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.4);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .refresh-btn:hover { background: rgba(255,255,255,0.3); }
+        .refresh-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 48px;
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 28px;
+            align-items: start;
+        }
+        .qr-card {
+            background: var(--surface);
+            border-radius: var(--card-radius);
+            padding: 24px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        .qr-card h2 {
+            font-size: 1.1rem;
+            margin: 0 0 8px 0;
+            color: var(--navy);
+            font-weight: 600;
+        }
+        .qr-card > p {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin: 0 0 16px 0;
+            line-height: 1.5;
+        }
+        .qr-box {
+            max-width: 280px;
+            margin: 0 auto 12px;
+            padding: 16px;
+            background: linear-gradient(180deg, #fbfeff 0%, #f5f9fc 100%);
+            border-radius: 12px;
+            border: 1px solid #e5eaf0;
+        }
+        .qr-box img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            display: block;
+        }
+        .timer {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+        .attendance-wrap {
+            background: var(--surface);
+            border-radius: var(--card-radius);
+            padding: 24px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        .attendance-wrap h2 {
+            font-size: 1.1rem;
+            margin: 0 0 20px 0;
+            color: var(--navy);
+            font-weight: 600;
+        }
+        .table-scroll {
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #eef2f7;
+        }
+        table.attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            min-width: 640px;
+        }
+        table.attendance-table thead th {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--navy);
+            font-weight: 600;
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        table.attendance-table tbody td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #374151;
+            vertical-align: middle;
+        }
+        table.attendance-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+        table.attendance-table tbody tr:hover {
+            background: #f1f5f9;
+        }
+        table.attendance-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .muted { color: var(--muted); }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size: 0.88rem; }
+        .status-ok {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .status-photo-issue { color: #ED6C02; font-weight: 600; font-size: 0.9rem; cursor: help; }  /* Amber - face verification */
+        .status-location-issue { color: #1565C0; font-weight: 600; font-size: 0.9rem; cursor: help; }  /* Blue - location mismatch */
+        .status-issue { color: var(--warning); font-weight: 600; font-size: 0.9rem; cursor: help; }  /* Fallback */
+        .empty-state, .error-state {
+            padding: 32px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+        .error-state { color: #b91c1c; }
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; padding: 0 16px 32px; }
+            .qr-card { order: 0; }
+            .attendance-wrap { order: 1; }
+            .page-header { padding: 20px 24px; }
+        }
     </style>
 </head>
 <body>
+    <header class="page-header">
+        <div>
+            <h1>QR Attendance Dashboard</h1>
+            <p>Class: {{ class_id }} — Students scan the QR code to mark attendance</p>
+        </div>
+        <button type="button" class="refresh-btn" id="refreshBtn" onclick="refreshAttendance()">↻ Refresh to see latest attendance</button>
+    </header>
     <div class="container">
         <div class="qr-card">
-            <h1>Class: {{ class_id }}</h1>
-            <p class="muted">Students should scan the code below to mark attendance.</p>
-            <div style="max-width:300px;margin:14px auto 6px;">
+            <h2>Scan to Mark Attendance</h2>
+            <p>Students should scan the code below using the attendance app.</p>
+            <div class="qr-box">
                 <img id="qrImage" src="/qr-code" alt="QR code">
             </div>
             <div class="timer" id="timerText">Refreshing in 30s...</div>
@@ -55,10 +214,11 @@
                             <th>DIGIPIN</th>
                             <th>Lat, Long</th>
                             <th>Scanned At (IST)</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody id="attendanceBody">
-                        <tr><td colspan="4" style="padding:18px;color:#666">Loading...</td></tr>
+                        <tr><td colspan="5" class="empty-state">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -66,6 +226,7 @@
     </div>
 
     <script>
+        const TIMEZONE = 'Asia/Kolkata';  // Indian Standard Time
         let timeLeft = 30;
         const qrImg = document.getElementById('qrImage');
         const timerTxt = document.getElementById('timerText');
@@ -73,11 +234,8 @@
         setInterval(() => {
             timeLeft--;
             if (timeLeft <= 0) {
-                    // Add a cache-buster timestamp to force image reload
                     qrImg.src = "/qr-code?t=" + new Date().getTime();
                     timeLeft = 30;
-                    // Also refresh the attendance list when QR rotates
-                    fetchAttendance();
                 }
             timerTxt.innerText = "Refreshing in " + timeLeft + "s...";
         }, 1000);
@@ -90,7 +248,7 @@
                     const data = await res.json();
                     const body = document.getElementById('attendanceBody');
                     if (!data || data.length === 0) {
-                        body.innerHTML = '<tr><td colspan="4" style="padding:18px;color:#666">No attendance recorded yet.</td></tr>';
+                        body.innerHTML = '<tr><td colspan="5" class="empty-state">No attendance recorded yet.</td></tr>';
                         return;
                     }
                     body.innerHTML = data.map(r => {
@@ -99,8 +257,8 @@
                         if (r.scanned_at) {
                             try {
                                 const dt = new Date(r.scanned_at);
-                                scanned = new Intl.DateTimeFormat('en-GB', {
-                                    timeZone: 'Asia/Kolkata',
+                                scanned = new Intl.DateTimeFormat('en-IN', {
+                                    timeZone: TIMEZONE,
                                     year: 'numeric', month: 'short', day: '2-digit',
                                     hour: '2-digit', minute: '2-digit', second: '2-digit',
                                     hour12: false
@@ -109,17 +267,49 @@
                                 scanned = r.scanned_at;
                             }
                         }
-                        return `<tr><td class="mono">${r.student_id || ''}</td><td>${r.student_digipin || ''}</td><td class="muted">${latlong}</td><td class="muted">${scanned}</td></tr>`;
+                        // Parse reasons: face verification failed + location mismatch (from DIGIPIN clustering)
+                        const raw = (r.suspicious_reason || (r.suspicious ? 'Face verification failed' : '')).trim();
+                        const parts = raw ? raw.split(/;\s*/).map(s => s.trim()).filter(Boolean) : [];
+                        const hasPhoto = parts.some(p => /face|verification|failed|photo|mismatch/i.test(p));
+                        const hasLocation = parts.some(p => /outside|location|class|digipin/i.test(p));
+                        const photoLabel = 'Face verification failed';
+                        const locationLabel = 'Location mismatch';
+                        const tooltipParts = [];
+                        if (hasPhoto) tooltipParts.push(photoLabel);
+                        if (hasLocation) tooltipParts.push(locationLabel);
+                        if (tooltipParts.length === 0 && parts.length) tooltipParts.push(parts[0]);
+                        if (tooltipParts.length === 0) tooltipParts.push(photoLabel);
+                        const tooltipText = tooltipParts.join('\n');
+                        const tooltipEscaped = tooltipText.replace(/"/g, '&quot;').replace(/\n/g, '&#10;');
+                        let statusHtml;
+                        if (!r.suspicious) {
+                            statusHtml = '<span class="status-ok">✓ OK</span>';
+                        } else if (hasPhoto && hasLocation) {
+                            statusHtml = `<span title="${tooltipEscaped}"><span class="status-photo-issue">${photoLabel}</span><span style="color:#666">; </span><span class="status-location-issue">${locationLabel}</span></span>`;
+                        } else if (hasPhoto) {
+                            statusHtml = `<span class="status-photo-issue" title="${tooltipEscaped}">${photoLabel}</span>`;
+                        } else if (hasLocation) {
+                            statusHtml = `<span class="status-location-issue" title="${tooltipEscaped}">${locationLabel}</span>`;
+                        } else {
+                            statusHtml = `<span class="status-issue" title="${tooltipEscaped}">${tooltipParts[0]}</span>`;
+                        }
+                        const status = statusHtml;
+                        return `<tr><td class="mono">${r.student_id || ''}</td><td>${r.student_digipin || ''}</td><td class="muted">${latlong}</td><td class="muted">${scanned}</td><td>${status}</td></tr>`;
                     }).join('');
                 } catch (e) {
                     const body = document.getElementById('attendanceBody');
-                    body.innerHTML = `<tr><td colspan="4" style="padding:12px;color:#b00">Error loading attendance</td></tr>`;
+                    body.innerHTML = '<tr><td colspan="5" class="error-state">Error loading attendance</td></tr>';
                 }
             }
 
-            // Initial load and periodic refresh
+            // Refresh on button click
+            async function refreshAttendance() {
+                const btn = document.getElementById('refreshBtn');
+                if (btn) { btn.disabled = true; btn.textContent = '↻ Loading...'; }
+                await fetchAttendance();
+                if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh to see latest attendance'; }
+            }
             fetchAttendance();
-            setInterval(fetchAttendance, 60000);
     </script>
 </body>
 </html>
