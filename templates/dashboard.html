@@ -63,11 +63,11 @@
         .refresh-btn:hover { background: rgba(255,255,255,0.3); }
         .refresh-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 0 24px 48px;
             display: grid;
-            grid-template-columns: 340px 1fr;
+            grid-template-columns: 300px 1fr;
             gap: 28px;
             align-items: start;
         }
@@ -132,22 +132,22 @@
         table.attendance-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             min-width: 640px;
         }
         table.attendance-table thead th {
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
             color: var(--navy);
             font-weight: 600;
-            padding: 14px 16px;
+            padding: 10px 12px;
             text-align: left;
             border-bottom: 2px solid #e2e8f0;
-            font-size: 0.8rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
         }
         table.attendance-table tbody td {
-            padding: 14px 16px;
+            padding: 10px 12px;
             border-bottom: 1px solid #f1f5f9;
             color: #374151;
             vertical-align: middle;
@@ -162,20 +162,25 @@
             border-bottom: none;
         }
         .muted { color: var(--muted); }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size: 0.88rem; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size: 0.78rem; }
+        .photo-cell { padding: 6px 10px; vertical-align: middle; }
+        .photo-cell img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; display: block; background: #e5e7eb; }
+        .photo-cell .photo-id { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
         .status-ok {
             color: var(--success);
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.78rem;
         }
-        .status-photo-issue { color: #ED6C02; font-weight: 600; font-size: 0.9rem; cursor: help; }  /* Amber - face verification */
-        .status-location-issue { color: #1565C0; font-weight: 600; font-size: 0.9rem; cursor: help; }  /* Blue - location mismatch */
-        .status-issue { color: var(--warning); font-weight: 600; font-size: 0.9rem; cursor: help; }  /* Fallback */
+        .status-photo-issue { color: #ED6C02; font-weight: 600; font-size: 0.72rem; cursor: help; }  /* Amber - face verification */
+        .status-location-issue { color: #1565C0; font-weight: 600; font-size: 0.72rem; cursor: help; }  /* Blue - location mismatch */
+        .status-issue { color: var(--warning); font-weight: 600; font-size: 0.72rem; cursor: help; }  /* Fallback */
+        .status-issues-list { display: block; line-height: 1.4; }
+        .status-issues-list span { display: block; }
         .empty-state, .error-state {
-            padding: 32px;
+            padding: 24px 16px;
             text-align: center;
             color: var(--muted);
-            font-size: 0.95rem;
+            font-size: 0.85rem;
         }
         .error-state { color: #b91c1c; }
         @media (max-width: 900px) {
@@ -210,6 +215,7 @@
                 <table class="attendance-table" id="attendanceTable">
                     <thead>
                         <tr>
+                            <th>Photo</th>
                             <th>Student ID</th>
                             <th>DIGIPIN</th>
                             <th>Lat, Long</th>
@@ -218,7 +224,7 @@
                         </tr>
                     </thead>
                     <tbody id="attendanceBody">
-                        <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                        <tr><td colspan="6" class="empty-state">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -240,7 +246,8 @@
             timerTxt.innerText = "Refreshing in " + timeLeft + "s...";
         }, 1000);
 
-            // Fetch attendance list and render into table
+            window.PLACEHOLDER_SVG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><circle cx="12" cy="8" r="3"/><path d="M5 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>');
+            const PLACEHOLDER_SVG = window.PLACEHOLDER_SVG;
             async function fetchAttendance() {
                 try {
                     const res = await fetch(`/api/attendance?class_id=${encodeURIComponent('{{ class_id }}')}&limit=100`);
@@ -248,7 +255,7 @@
                     const data = await res.json();
                     const body = document.getElementById('attendanceBody');
                     if (!data || data.length === 0) {
-                        body.innerHTML = '<tr><td colspan="5" class="empty-state">No attendance recorded yet.</td></tr>';
+                        body.innerHTML = '<tr><td colspan="6" class="empty-state">No attendance recorded yet.</td></tr>';
                         return;
                     }
                     body.innerHTML = data.map(r => {
@@ -273,7 +280,7 @@
                         const hasPhoto = parts.some(p => /face|verification|failed|photo|mismatch/i.test(p));
                         const hasLocation = parts.some(p => /outside|location|class|digipin/i.test(p));
                         const photoLabel = 'Face verification failed';
-                        const locationLabel = 'Location mismatch';
+                        const locationLabel = 'Proximity mismatch: Student appears as a location outlier compared to the rest of the group.';
                         const tooltipParts = [];
                         if (hasPhoto) tooltipParts.push(photoLabel);
                         if (hasLocation) tooltipParts.push(locationLabel);
@@ -285,7 +292,7 @@
                         if (!r.suspicious) {
                             statusHtml = '<span class="status-ok">✓ OK</span>';
                         } else if (hasPhoto && hasLocation) {
-                            statusHtml = `<span title="${tooltipEscaped}"><span class="status-photo-issue">${photoLabel}</span><span style="color:#666">; </span><span class="status-location-issue">${locationLabel}</span></span>`;
+                            statusHtml = `<span class="status-issues-list" title="${tooltipEscaped}"><span class="status-photo-issue">• ${photoLabel}</span><span class="status-location-issue">• ${locationLabel}</span></span>`;
                         } else if (hasPhoto) {
                             statusHtml = `<span class="status-photo-issue" title="${tooltipEscaped}">${photoLabel}</span>`;
                         } else if (hasLocation) {
@@ -294,11 +301,13 @@
                             statusHtml = `<span class="status-issue" title="${tooltipEscaped}">${tooltipParts[0]}</span>`;
                         }
                         const status = statusHtml;
-                        return `<tr><td class="mono">${r.student_id || ''}</td><td>${r.student_digipin || ''}</td><td class="muted">${latlong}</td><td class="muted">${scanned}</td><td>${status}</td></tr>`;
+                        const photoUrl = r.photo_path ? `/captured-photo?path=${encodeURIComponent(r.photo_path)}` : PLACEHOLDER_SVG;
+                        const photoCell = `<td class="photo-cell"><img src="${photoUrl}" alt="${(r.student_id || '').replace(/"/g, '&quot;')}" loading="lazy" title="${(r.student_id || '').replace(/"/g, '&quot;')}" onerror="this.onerror=null;this.src=window.PLACEHOLDER_SVG"><span class="photo-id mono">${(r.student_id || '').replace(/</g, '&lt;')}</span></td>`;
+                        return `<tr>${photoCell}<td class="mono">${r.student_id || ''}</td><td>${r.student_digipin || ''}</td><td class="muted">${latlong}</td><td class="muted">${scanned}</td><td>${status}</td></tr>`;
                     }).join('');
                 } catch (e) {
                     const body = document.getElementById('attendanceBody');
-                    body.innerHTML = '<tr><td colspan="5" class="error-state">Error loading attendance</td></tr>';
+                    body.innerHTML = '<tr><td colspan="6" class="error-state">Error loading attendance</td></tr>';
                 }
             }
 
@@ -307,7 +316,7 @@
                 const btn = document.getElementById('refreshBtn');
                 if (btn) { btn.disabled = true; btn.textContent = '↻ Loading...'; }
                 await fetchAttendance();
-                if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh to see latest attendance'; }
+                if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
             }
             fetchAttendance();
     </script>

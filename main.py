@@ -171,6 +171,8 @@ class AttendanceSchema(BaseModel):
     photo_matched: Optional[bool] = None
     # suspicious_reason: why marked suspicious (e.g. "Photo mismatch")
     suspicious_reason: Optional[str] = None
+    # photo_base64: captured selfie to save for dashboard display
+    photo_base64: Optional[str] = None
 
     @field_validator("scanned_at", mode="before")
     @classmethod
@@ -284,6 +286,27 @@ async def check_in(data: AttendanceSchema):
                     "timestamp": int(time.time()),
                 }
 
+    # Save captured photo if provided
+    photo_path = None
+    if data.photo_base64:
+        try:
+            photo_b64 = data.photo_base64
+            if isinstance(photo_b64, str) and photo_b64.startswith("data:"):
+                photo_b64 = photo_b64.split(",", 1)[1] if "," in photo_b64 else photo_b64
+            img_bytes = base64.b64decode(photo_b64)
+            ts = int(scanned_at.timestamp()) if isinstance(scanned_at, datetime) else int(time.time())
+            uid = uuid.uuid4().hex[:8]
+            captured_dir = Path("photos") / "captured"
+            captured_dir.mkdir(parents=True, exist_ok=True)
+            safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in data.student_id)
+            fname = f"{safe_id}_{ts}_{uid}.jpg"
+            filepath = captured_dir / fname
+            with open(filepath, "wb") as f:
+                f.write(img_bytes)
+            photo_path = f"captured/{fname}"
+        except Exception as e:
+            print("[ATTENDANCE] CHECK_IN: Failed to save photo", repr(e))
+
     # prepare row to insert; include suspicious and reason when photo did not match
     row = {
         "student_id": data.student_id,
@@ -295,6 +318,7 @@ async def check_in(data: AttendanceSchema):
         "scanned_at": scanned_at,
         "suspicious": suspicious,
         "suspicious_reason": suspicious_reason,
+        "photo_path": photo_path,
     }
 
     # convert datetime to ISO string so it's JSON serializable for the client
@@ -318,6 +342,18 @@ async def check_in(data: AttendanceSchema):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request, "class_id": CLASS_ID})
+
+
+@app.get("/captured-photo")
+async def get_captured_photo(path: str):
+    """Serve a captured attendance photo. path must be like 'captured/STU_001_ts_hash.jpg'."""
+    if not path or ".." in path or not path.startswith("captured/"):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    filepath = Path("photos") / path
+    if not filepath.exists() or not filepath.is_file():
+        raise HTTPException(status_code=404, detail="Photo not found")
+    media = "image/jpeg" if filepath.suffix.lower() in (".jpg", ".jpeg") else "image/png"
+    return FileResponse(filepath, media_type=media)
 
 
 @app.get("/reference-photo/{student_id}")
@@ -492,14 +528,37 @@ def _get_modal_digipin_prefix(rows: list, prefix_len: int = 10) -> Optional[str]
     return Counter(prefixes).most_common(1)[0][0]
 
 
+def _is_today_ist(scanned_at) -> bool:
+    """True if scanned_at is on the current date in IST."""
+    try:
+        if scanned_at is None:
+            return False
+        if isinstance(scanned_at, str):
+            dt = datetime.fromisoformat(scanned_at.replace("Z", "+00:00"))
+        else:
+            dt = scanned_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        today_ist = datetime.now(IST).date()
+        return dt.astimezone(IST).date() == today_ist
+    except Exception:
+        return False
+
+
 def _apply_digipin_clustering(rows: list) -> list:
-    """Mark attendance as suspicious if DIGIPIN doesn't cluster with other students."""
+    """Mark attendance as suspicious (location outlier) if DIGIPIN doesn't cluster with other students.
+    Only applies to rows from the current date (IST)."""
     if len(rows) < 2:
         return rows
-    modal_prefix = _get_modal_digipin_prefix(rows)
+    today_rows = [r for r in rows if _is_today_ist(r.get("scanned_at"))]
+    if len(today_rows) < 2:
+        return rows
+    modal_prefix = _get_modal_digipin_prefix(today_rows)
     if not modal_prefix:
         return rows
     for r in rows:
+        if not _is_today_ist(r.get("scanned_at")):
+            continue
         d = r.get("student_digipin") or ""
         if not d or len(d) < len(modal_prefix):
             continue
@@ -516,17 +575,33 @@ async def list_attendance(limit: int = 100, class_id: Optional[str] = None):
     """Return recent attendance rows as JSON, filtered by class_id (defaults to CLASS_ID).
     Marks records as suspicious if DIGIPIN doesn't cluster with other students."""
     cid = class_id or CLASS_ID
+    select_cols = "id, student_id, class_id, student_digipin, student_lat, student_long, scanned_at, suspicious, suspicious_reason, photo_path"
     try:
         resp = (
             supabase.table("attendance")
-            .select("id, student_id, class_id, student_digipin, student_lat, student_long, scanned_at, suspicious, suspicious_reason")
+            .select(select_cols)
             .eq("class_id", cid)
             .order("scanned_at", desc=True)
             .limit(limit)
             .execute()
         )
-    except Exception:
-        return []
+    except Exception as e:
+        # photo_path column may not exist; retry without it
+        print("[ATTENDANCE] list_attendance: First select failed", repr(e))
+        try:
+            select_cols = "id, student_id, class_id, student_digipin, student_lat, student_long, scanned_at, suspicious, suspicious_reason"
+            resp = (
+                supabase.table("attendance")
+                .select(select_cols)
+                .eq("class_id", cid)
+                .order("scanned_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            for r in (getattr(resp, "data", None) or (resp.get("data") if isinstance(resp, dict) else [])):
+                r["photo_path"] = None
+        except Exception:
+            return []
 
     rows = getattr(resp, "data", None) or (resp.get("data") if isinstance(resp, dict) else [])
     return _apply_digipin_clustering(rows)
