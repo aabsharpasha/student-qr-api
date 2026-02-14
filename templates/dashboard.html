@@ -316,7 +316,7 @@
                 const btn = document.getElementById('refreshBtn');
                 if (btn) { btn.disabled = true; btn.textContent = '↻ Loading...'; }
                 await fetchAttendance();
-                if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
+                if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh to see recent attendance'; }
             }
             fetchAttendance();
     </script>
